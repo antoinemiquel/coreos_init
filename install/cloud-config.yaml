@@ -1,7 +1,7 @@
 #cloud-config
 
 users:
-  - name: "antoine"
+  - name: "core"
     groups:
       - "sudo"
     ssh-authorized-keys:
@@ -14,8 +14,7 @@ write_files:
         #!/bin/bash
         ENV="/etc/environment"
         curl -L "https://github.com/kelseyhightower/setup-network-environment/releases/download/1.0.1/setup-network-environment" -o /run/setup-network-environment
-        #to do DISCO=$(curl raw.github | jq -r .)
-        DISCO="https://discovery.etcd.io/1581682a2b60b26f866d3eb251fc10e5"
+        DISCO=${curl -L "https://raw.githubusercontent.com/antoinemiquel/coreos_init/master/install/etcd_token"}
         chmod 755 /run/setup-network-environment
         /run/setup-network-environment
         source /etc/network-environment
@@ -51,13 +50,3 @@ coreos:
 
     - name: fleet.service
       command: start
-
-    - name: flanneld.service
-      command: start
-      enable: true
-      drop-ins:
-        - name: "50-network-config.conf"
-          content: |
-            [Service]
-            ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{"Network":"10.1.0.0/16", "Backend": {"Type": "vxlan"}}'
- 
