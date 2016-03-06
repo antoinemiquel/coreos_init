@@ -1,0 +1,63 @@
+#cloud-config
+
+users:
+  - name: "antoine"
+    groups:
+      - "sudo"
+    ssh-authorized-keys:
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDeDvWykhov7mz2kwKlHJLaqq/IQUdeyRMXCZECmOj+ALzbVJkvxUCuuV3rtc8dhNMUfWyR+8S9YH/WzfiRTLQ/qwCDNMKyuyDb/JLHpbT4b5wPwEguzTp3jUaAPftI7BJrco3tuaTk22RDfB0RPY9wQgikF62zmL7wnl6xYmjNq/DVpyhrEKLa+PXrKSo1ixC3LgiK+UGAcdCTPZcYgHmNcG8GANXnASaIkwJvy6fs6g+fZY5YuNOOeNoFxCea9I9iUFTuNhDU4WB8iluVHFN/enfpJNojG+gFRp5EZTLLoHLkvJbwS/6tXT7yEtAGvrVTyYl94PS6wso7rd0rLbTN antoine@antoine-portable"
+
+write_files:
+    - path: /run/generate_environment
+      permissions: 0755
+      content: |
+        #!/bin/bash
+        ENV="/etc/environment"
+        curl -L "https://github.com/kelseyhightower/setup-network-environment/releases/download/1.0.1/setup-network-environment" -o /run/setup-network-environment
+        #to do DISCO=$(curl raw.github | jq -r .)
+        DISCO="https://discovery.etcd.io/1581682a2b60b26f866d3eb251fc10e5"
+        chmod 755 /run/setup-network-environment
+        /run/setup-network-environment
+        source /etc/network-environment
+        echo ETCD_NAME=$HOSTNAME > $ENV
+        echo ETCD_DISCOVERY=$DISCO >> $ENV
+        echo ETCD_ADVERTISE_CLIENT_URLS="http://${DEFAULT_IPV4}:2379" >> $ENV
+        echo ETCD_INITIAL_ADVERTISE_PEER_URLS="http://${DEFAULT_IPV4}:2380" >> $ENV
+        echo ETCD_LISTEN_CLIENT_URLS="http://0.0.0.0:2379,http://0.0.0.0:4001" >> $ENV
+        echo ETCD_LISTEN_PEER_URLS="http://${DEFAULT_IPV4}:2380,http://${DEFAULT_IPV4}:7001" >> $ENV
+
+coreos:
+  units:
+    - name: generate_env.service
+      command: start
+      runtime: true
+      content: |
+        [Unit]
+        Description=Generate environment file
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/run/generate_environment
+
+    - name: etcd2.service
+      after: setup-environment.service
+      command: start
+      drop-ins:
+        - name: "10-etcd_env.conf"
+          content: |
+            [Service]
+            EnvironmentFile=/etc/environment
+
+    - name: fleet.service
+      command: start
+
+    - name: flanneld.service
+      command: start
+      enable: true
+      drop-ins:
+        - name: "50-network-config.conf"
+          content: |
+            [Service]
+            ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{"Network":"10.1.0.0/16", "Backend": {"Type": "vxlan"}}'
+ 
