@@ -14,7 +14,7 @@ write_files:
         #!/bin/bash
         ENV="/etc/environment"
         curl -L "https://github.com/kelseyhightower/setup-network-environment/releases/download/1.0.1/setup-network-environment" -o /run/setup-network-environment
-        DISCO=${curl -L "https://raw.githubusercontent.com/antoinemiquel/coreos_init/master/install/etcd_token"}
+        DISCO=`curl -L "https://raw.githubusercontent.com/antoinemiquel/coreos_init/master/install/etcd_token`
         chmod 755 /run/setup-network-environment
         /run/setup-network-environment
         source /etc/network-environment
